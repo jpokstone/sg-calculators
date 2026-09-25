@@ -34,8 +34,18 @@ export const GROUPS = [
 
 const RESERVED = new Set(['sgCalc', 'title', 'subtitle', 'hideTitle', 'brand', 'contact', 'sgMounted', 'start', 'tools']);
 
+// Mobile "fast tap" scripts on host sites (FastClick and similar) listen for touches on the
+// page, cancel the native tap and re-send a click to event.target. Shadow DOM retargets that
+// to our outer <div>, so taps never reach tabs, selects or inputs. Keeping touch events inside
+// the widget lets the browser handle taps natively. Page scrolling is unaffected.
+const TOUCH = ['touchstart', 'touchmove', 'touchend', 'touchcancel'];
+function isolateTouches(el) {
+  for (const t of TOUCH) el.addEventListener(t, (e) => e.stopPropagation(), { passive: true });
+}
+
 function mountEl(el) {
   if (el.dataset.sgMounted) return;
+  isolateTouches(el);
   const d = el.dataset, g = window.SGCalcConfig || {};
   const overrides = {};
   for (const [k, v] of Object.entries(d)) if (!RESERVED.has(k)) overrides[k] = v;
