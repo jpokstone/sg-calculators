@@ -61,3 +61,54 @@ export function itemized(summary, groups, fmt = (v) => money(v)) {
 
 export const note = (html, warn = false) => `<div class="note${warn ? ' warn' : ''}">${html}</div>`;
 export const empty = (title, text) => `<div class="empty"><div class="v">${esc(title)}</div>${esc(text)}</div>`;
+
+/** Segmented toggle inside results, bound to a state key. */
+export function seg(key, options, current, label = '') {
+  return `<div class="seg rs" role="group"${label ? ` aria-label="${esc(label)}"` : ''}>${options.map(([v, l]) =>
+    `<button type="button" data-set="${key}" data-val="${esc(v)}" aria-pressed="${String(v) === String(current)}">${esc(l)}</button>`).join('')}</div>`;
+}
+
+/** − value + stepper bound to a state key (integer). */
+export function stepper(key, value, min = 0, max = 360, label = '') {
+  const v = +value;
+  return `<span class="stp"><button type="button" data-set="${key}" data-val="${Math.max(min, v - 1)}" aria-label="Decrease ${esc(label)}"${v <= min ? ' disabled' : ''}>−</button><b class="num">${v}</b><button type="button" data-set="${key}" data-val="${Math.min(max, v + 1)}" aria-label="Increase ${esc(label)}"${v >= max ? ' disabled' : ''}>+</button></span>`;
+}
+
+/**
+ * Side-by-side comparison cards.
+ * cards: [{ kicker, title, value, sub, rows, tone: 'best'|'', badge }]
+ */
+export function cards(list) {
+  return `<div class="cards c${list.length}">${list.map((c) => `<div class="card${c.tone ? ' ' + c.tone : ''}">
+    ${c.badge ? `<span class="badge">${esc(c.badge)}</span>` : ''}
+    ${c.kicker ? `<div class="ck">${esc(c.kicker)}</div>` : ''}
+    <div class="cv num">${esc(c.value)}</div>
+    ${c.sub ? `<div class="cs">${c.sub}</div>` : ''}
+    ${c.rows ? rows(c.rows) : ''}${c.extra || ''}</div>`).join('')}</div>`;
+}
+
+/**
+ * Table with a label column. cols: header labels (first is the row-label header).
+ * body: [[label, ...cells, opts?]] where opts = { strong, total, hl: colIndex }.
+ */
+export function table(cols, body, opts = {}) {
+  const head = `<tr>${cols.map((c, i) => `<th${i ? ' class="n"' : ''}${opts.best === i ? ' data-best' : ''}>${c}</th>`).join('')}</tr>`;
+  const trs = body.filter(Boolean).map((r) => {
+    const o = typeof r[r.length - 1] === 'object' && !Array.isArray(r[r.length - 1]) && r[r.length - 1] !== null ? r[r.length - 1] : {};
+    const cells = o === r[r.length - 1] ? r.slice(0, -1) : r;
+    return `<tr class="${[o.strong && 'strong', o.total && 'total'].filter(Boolean).join(' ')}">${cells.map((c, i) => i ? `<td class="n num"${opts.best === i ? ' data-best' : ''}>${c}</td>` : `<th scope="row">${esc(c)}</th>`).join('')}</tr>`;
+  }).join('');
+  return `<div class="tblw"><table class="tbl"><thead>${head}</thead><tbody>${trs}</tbody></table></div>`;
+}
+
+/** Small stat tiles. items: [[label, value, sub?]] */
+export function stats(items) {
+  return `<div class="stats">${items.filter(Boolean).map(([l, v, s]) => `<div class="st"><div class="k">${esc(l)}</div><div class="v num">${esc(v)}</div>${s ? `<div class="s">${esc(s)}</div>` : ''}</div>`).join('')}</div>`;
+}
+
+/** Button that opens another calculator in the tabbed suite (hidden when embedded standalone). */
+export function goto(id, values, label) {
+  return `<button type="button" class="goto" data-goto="${esc(id)}" data-with="${esc(JSON.stringify(values || {}))}">${esc(label)} →</button>`;
+}
+
+export const para = (html) => `<p class="para">${html}</p>`;

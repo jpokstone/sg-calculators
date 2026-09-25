@@ -2,14 +2,24 @@
 
 Embeddable real-estate calculators for Signature Group Real Estate websites. Each calculator renders inside its own Shadow DOM, so the host site's CSS can't break it and it can't affect the host site.
 
-## Embed a calculator
+## Embed the calculators
 
-Paste this into any HTML / custom-code block:
+**All calculators in one tabbed hub** (Buyers | Sellers & owners):
 
 ```html
-<div data-sg-calc="monthly-affordability"
-     data-brand="GMR Real Estate"
-     data-contact="Greg Riley | (801) 808-7457 | greg@gmr-realestate.com"></div>
+<div data-sg-calc="suite" data-brand="GMR Real Estate" data-contact="Greg Riley | (801) 808-7457"></div>
+<script src="https://jpokstone.github.io/sg-calculators/calculators.js" defer></script>
+```
+
+Each tab updates the page link (for example `your-page#refi`), so you can link straight to one calculator. Values you change, like rate and price, carry over between tabs in the same group.
+
+- `data-start="refi"`: the tab to open first.
+- `data-tools="monthly-affordability,qualify,refi"`: show only these tabs.
+
+**A single calculator:**
+
+```html
+<div data-sg-calc="refi" data-brand="GMR Real Estate" data-contact="Greg Riley | (801) 808-7457"></div>
 <script src="https://jpokstone.github.io/sg-calculators/calculators.js" defer></script>
 ```
 
@@ -20,9 +30,21 @@ Paste this into any HTML / custom-code block:
 
 ## Available calculators
 
-| `data-sg-calc` | Calculator |
-|---|---|
-| `monthly-affordability` | Monthly Affordability |
+| `data-sg-calc` | Calculator | Group |
+|---|---|---|
+| `suite` | All calculators, tabbed | — |
+| `monthly-affordability` | Monthly Affordability | Buyers |
+| `qualify` | Qualify | Buyers |
+| `buy-now-or-later` | Buy Now or Buy Later | Buyers |
+| `buydown` | Buydown Calculator | Buyers |
+| `buyer-compensation` | Buyer Agent Compensation | Buyers |
+| `title-escrow` | Title & Escrow Fees | Buyers |
+| `sell-or-rent` | Sell or Rent | Buyers |
+| `truvalue` | TruValue Analysis | Sellers & owners |
+| `sell-to-net` | Sell to Net | Sellers & owners |
+| `equity-review` | Equity Review | Sellers & owners |
+| `home-equity` | Home Equity (HELOC, home equity loan, cash-out) | Sellers & owners |
+| `refi` | Refinance | Sellers & owners |
 
 ## Updating defaults
 
@@ -51,4 +73,4 @@ python3 -m http.server   # then open http://localhost:8000/demo/
 npm run build            # optional: single-file bundle in dist/
 ```
 
-`demo/index.html` loads the calculator into a page with deliberately hostile CSS, to prove the styles are isolated.
+`demo/index.html` loads a calculator into a page with deliberately hostile CSS, to prove the styles are isolated. `demo/suite.html` loads the tabbed hub.

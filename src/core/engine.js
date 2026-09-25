@@ -62,6 +62,15 @@ function fieldHtml(f, s, uid) {
       body = `<div class="ig"><input id="${id}" type="date" data-k="${f.key}" value="${esc(s[f.key] || '')}"></div>`; break;
     case 'text':
       body = `<div class="ig"><input id="${id}" type="text" autocomplete="off" data-k="${f.key}" data-fmt="t" value="${esc(s[f.key] || '')}"${ph}></div>`; break;
+    case 'list': {
+      const items = Array.isArray(s[f.key]) ? s[f.key] : [];
+      const cell = (c, it, i) => c.type === 'select'
+        ? `<div class="ig"><select data-li="${f.key}" data-i="${i}" data-c="${c.key}" aria-label="${esc(c.label)}">${c.options.map(([v, l]) => `<option value="${esc(v)}"${String(it[c.key]) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`
+        : `<div class="ig"><span class="ad">$</span><input type="text" inputmode="decimal" autocomplete="off" data-li="${f.key}" data-i="${i}" data-c="${c.key}" data-fmt="m" value="${esc(displayMoney(it[c.key]))}" placeholder="${esc(c.placeholder || '')}" aria-label="${esc(c.label)}"></div>`;
+      body = `<div class="lst">${items.map((it, i) => `<div class="lst-row">${f.columns.map((c) => cell(c, it, i)).join('')}<button type="button" class="x" data-act="list-del" data-key="${f.key}" data-i="${i}" aria-label="Remove row">×</button></div>`).join('')}
+        <button type="button" class="btn ghost sm" data-act="list-add" data-key="${f.key}">+ ${esc(f.addLabel || 'Add')}</button></div>`;
+      break;
+    }
     case 'check':
       return `<div class="f" data-field="${f.key}"><label class="chk"><input type="checkbox" data-k="${f.key}"${s[f.key] ? ' checked' : ''}> ${esc(f.label)}${tipHtml(f.tip)}</label>${hint}</div>`;
     default:
@@ -89,6 +98,7 @@ function initialState(def, overrides) {
     if (f.type === 'pctAmt') { s[f.key] = d?.pct ?? d ?? ''; s[f.key + 'Amt'] = d?.amt ?? ''; s[f.key + 'Mode'] = d?.mode ?? '%'; }
     else if (f.type === 'period') { s[f.key] = d?.value ?? d ?? ''; s[f.key + 'Per'] = d?.per ?? 'mo'; }
     else if (f.type === 'date') s[f.key] = d instanceof Date ? isoDate(d) : (d || '');
+    else if (Array.isArray(d)) s[f.key] = d.map((x) => ({ ...x }));
     else s[f.key] = d ?? '';
   }
   Object.assign(s, def.state || {});
@@ -123,6 +133,7 @@ function normalize(def, s) {
         v[f.key + 'Monthly'] = per === 'mo' ? n : n / 12; v[f.key + 'Annual'] = per === 'mo' ? n * 12 : n; v[f.key] = n; break;
       }
       case 'check': v[f.key] = !!raw; break;
+      case 'list': v[f.key] = (Array.isArray(raw) ? raw : []).map((it) => Object.fromEntries(f.columns.map((c) => [c.key, c.type === 'money' ? num(it[c.key]) : it[c.key]]))); break;
       default: v[f.key] = raw;
     }
   }
@@ -165,7 +176,7 @@ export function mount(host, def, opts = {}) {
   }).join('');
 
   root.innerHTML = `<style>${CSS}</style>
-    <div class="sg" part="calculator">
+    <div class="sg${opts.inSuite ? ' in-suite' : ''}" part="calculator">
       ${cfg.hideTitle ? '' : `<header class="sg-head"><h2 class="sg-title">${esc(cfg.title)}</h2>${cfg.subtitle ? `<p class="sg-sub">${esc(cfg.subtitle)}</p>` : ''}</header>`}
       <div class="sg-grid">
         <form class="sg-form" novalidate>${formHtml}</form>
@@ -220,12 +231,18 @@ export function mount(host, def, opts = {}) {
   }
 
   form.addEventListener('input', (e) => {
+    const li = e.target.closest('[data-li]');
+    if (li) { const row = state[li.dataset.li]?.[+li.dataset.i]; if (row) { row[li.dataset.c] = li.value; update(); } return; }
     const el = e.target.closest('[data-k]'); if (!el) return;
     const k = el.dataset.k;
     if (el.type === 'checkbox') state[k] = el.checked;
     else if (el.dataset.pa && (state[k + 'Mode'] || '%') === '$') state[k + 'Amt'] = el.value;
     else state[k] = el.value;
     update();
+  });
+  form.addEventListener('change', (e) => {
+    const li = e.target.closest('select[data-li]');
+    if (li) { const row = state[li.dataset.li]?.[+li.dataset.i]; if (row) { row[li.dataset.c] = li.value; update(); } }
   });
   form.addEventListener('change', (e) => { const el = e.target.closest('select[data-k],input[type=date][data-k]'); if (el) { state[el.dataset.k] = el.value; update(); } });
   form.addEventListener('focusout', (e) => {
@@ -254,8 +271,19 @@ export function mount(host, def, opts = {}) {
     }
     const set = e.target.closest('[data-set]');
     if (set) { state[set.dataset.set] = set.dataset.val; update(); return; }
+    const go = e.target.closest('[data-goto]');
+    if (go) { host.dispatchEvent(new CustomEvent('sg-goto', { bubbles: true, composed: true, detail: { id: go.dataset.goto, values: JSON.parse(go.dataset.with || '{}') } })); return; }
     const act = e.target.closest('[data-act]');
     if (act?.dataset.act === 'print') printReport();
+    if (act?.dataset.act === 'list-add' || act?.dataset.act === 'list-del') {
+      const f = def.fields.find((x) => x.key === act.dataset.key);
+      const arr = state[f.key] = Array.isArray(state[f.key]) ? state[f.key] : [];
+      if (act.dataset.act === 'list-add') arr.push(Object.fromEntries(f.columns.map((c) => [c.key, c.default ?? ''])));
+      else arr.splice(+act.dataset.i, 1);
+      const el = form.querySelector(`[data-field="${f.key}"]`);
+      if (el) el.outerHTML = fieldHtml(f, state, uid);
+      update(); return;
+    }
     if (act?.dataset.act && def.actions?.[act.dataset.act]) { def.actions[act.dataset.act](state, act.dataset); update(); }
   });
   results.addEventListener('input', (e) => {
@@ -293,6 +321,7 @@ export function mount(host, def, opts = {}) {
         case 'period': text = vals[f.key] ? `${money(vals[f.key + 'Monthly'])}/mo` : ''; break;
         case 'select': case 'seg': text = (f.options.find(([v]) => String(v) === String(raw)) || [, raw])[1]; break;
         case 'date': text = raw ? niceDate(raw) : ''; break;
+        case 'list': text = (vals[f.key] || []).filter((it) => f.columns.some((c) => c.type === 'money' && it[c.key])).map((it) => f.columns.map((c) => c.type === 'money' ? money(it[c.key]) : (c.options.find(([v]) => v === it[c.key]) || [, it[c.key]])[1]).join(' ')).join(', '); break;
         default: text = raw;
       }
       if (text !== '' && text != null) out.push([f.label, text]);

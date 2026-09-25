@@ -1,39 +1,60 @@
 // Embed loader. Finds every <div data-sg-calc="name"> on the page and mounts
 // the calculator into it. Usage:
-//   <div data-sg-calc="monthly-affordability"></div>
+//   <div data-sg-calc="suite"></div>                  ← tabbed hub with every calculator
+//   <div data-sg-calc="monthly-affordability"></div>  ← a single calculator
 //   <script src="https://jpokstone.github.io/sg-calculators/calculators.js" defer></script>
 //
 // Optional attributes on the div:
 //   data-title / data-subtitle / data-hide-title="true"
 //   data-brand="GMR Real Estate"  data-contact="Greg Riley | (801) 808-7457"   (print header)
 //   data-<field>="value" to override a default, e.g. data-rate="6.875" data-payment="3500"
+//   Suite only: data-start="refi" (first tab), data-tools="refi,sell-to-net" (limit tabs)
 import { mount } from './core/engine.js';
+import { mountSuite } from './suite.js';
 import monthlyAffordability from './calcs/monthly-affordability.js';
+import qualify from './calcs/qualify.js';
+import buyNowOrLater from './calcs/buy-now-or-later.js';
+import buydown from './calcs/buydown.js';
+import buyerCompensation from './calcs/buyer-compensation.js';
+import titleEscrow from './calcs/title-escrow.js';
+import sellOrRent from './calcs/sell-or-rent.js';
+import truvalue from './calcs/truvalue.js';
+import sellToNet from './calcs/sell-to-net.js';
+import equityReview from './calcs/equity-review.js';
+import homeEquity from './calcs/home-equity.js';
+import refi from './calcs/refi.js';
 
-const REGISTRY = {
-  [monthlyAffordability.id]: monthlyAffordability,
-};
+const ALL = [monthlyAffordability, qualify, buyNowOrLater, buydown, buyerCompensation, titleEscrow, sellOrRent, truvalue, sellToNet, equityReview, homeEquity, refi];
+const REGISTRY = Object.fromEntries(ALL.map((d) => [d.id, d]));
 
-const RESERVED = new Set(['sgCalc', 'title', 'subtitle', 'hideTitle', 'brand', 'contact', 'sgMounted']);
+export const GROUPS = [
+  { id: 'buyers', label: 'Buyers', ids: ['monthly-affordability', 'qualify', 'buy-now-or-later', 'buydown', 'buyer-compensation', 'title-escrow', 'sell-or-rent'] },
+  { id: 'sellers', label: 'Sellers & owners', ids: ['truvalue', 'sell-to-net', 'equity-review', 'home-equity', 'refi'] },
+];
+
+const RESERVED = new Set(['sgCalc', 'title', 'subtitle', 'hideTitle', 'brand', 'contact', 'sgMounted', 'start', 'tools']);
 
 function mountEl(el) {
   if (el.dataset.sgMounted) return;
-  const def = REGISTRY[el.dataset.sgCalc];
-  if (!def) { console.warn('[sg-calc] unknown calculator:', el.dataset.sgCalc, '— available:', Object.keys(REGISTRY).join(', ')); return; }
-  el.dataset.sgMounted = '1';
   const d = el.dataset, g = window.SGCalcConfig || {};
   const overrides = {};
   for (const [k, v] of Object.entries(d)) if (!RESERVED.has(k)) overrides[k] = v;
-  mount(el, def, {
-    overrides,
-    config: {
-      ...(d.title && { title: d.title }),
-      ...(d.subtitle != null && { subtitle: d.subtitle }),
-      hideTitle: d.hideTitle === 'true',
-      brand: d.brand ?? g.brand ?? '',
-      contact: d.contact ?? g.contact ?? '',
-    },
-  });
+  const config = {
+    ...(d.title && { title: d.title }),
+    ...(d.subtitle != null && { subtitle: d.subtitle }),
+    hideTitle: d.hideTitle === 'true',
+    brand: d.brand ?? g.brand ?? '',
+    contact: d.contact ?? g.contact ?? '',
+  };
+  if (d.sgCalc === 'suite') {
+    el.dataset.sgMounted = '1';
+    mountSuite(el, REGISTRY, GROUPS, { ...config, overrides, start: d.start, tools: d.tools });
+    return;
+  }
+  const def = REGISTRY[d.sgCalc];
+  if (!def) { console.warn('[sg-calc] unknown calculator:', d.sgCalc, '— available: suite,', Object.keys(REGISTRY).join(', ')); return; }
+  el.dataset.sgMounted = '1';
+  mount(el, def, { overrides, config });
 }
 
 function scan(root = document) { root.querySelectorAll('[data-sg-calc]').forEach(mountEl); }

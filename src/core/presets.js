@@ -1,6 +1,6 @@
 // Reusable field definitions so every calculator asks the same questions the same way.
 import { MARKET, PROGRAMS, CLOSING } from './defaults.js';
-import { defaultClosingDate } from './finance.js';
+import { defaultClosingDate, lendersPolicy as lendersPolicyEst } from './finance.js';
 
 export const LOAN_OPTIONS = (types = ['conv', 'fha', 'va', 'usda']) => types.map((t) => [t, PROGRAMS[t].label]);
 export const TERM_OPTIONS = [[30, '30 years'], [25, '25 years'], [20, '20 years'], [15, '15 years'], [10, '10 years']];
@@ -44,3 +44,37 @@ export function costSchedule(v) {
 
 export const MI_LABEL = { conv: 'Mortgage insurance (PMI)', fha: 'FHA mortgage insurance', va: 'Mortgage insurance', usda: 'USDA annual fee', cash: 'Mortgage insurance' };
 export const UPFRONT_LABEL = { fha: 'FHA upfront MIP', va: 'VA funding fee', usda: 'USDA guarantee fee' };
+
+export const price = (o = {}) => ({ key: 'price', label: 'Home price', type: 'money', default: 500000, required: true, ...o });
+
+// Seller-side costs (listing fee, buyer-agent fee and who pays it, concessions, other).
+export function sellerCostFields(group = 'more', o = {}) {
+  return [
+    { key: 'sellerBroker', label: 'Listing brokerage fee', type: 'percent', default: MARKET.sellerBrokerPct, group, half: true },
+    { key: 'buyerBroker', label: 'Buyer brokerage fee', type: 'percent', default: MARKET.buyerBrokerPct, group, half: true },
+    { key: 'buyerBrokerBy', label: 'Buyer brokerage fee paid by', type: 'seg', options: [['seller', 'Seller'], ['split', 'Split'], ['buyer', 'Buyer']], default: 'seller', group },
+    { key: 'concession', label: 'Seller concession', type: 'pctAmt', default: { pct: 0 }, base: o.base || ((v) => v.price || v._price || 0), group, tip: 'Credit the seller gives the buyer toward closing costs or a rate buydown.' },
+    { key: 'misc', label: 'Other seller costs', type: 'money', default: '', placeholder: 'Repairs, home warranty…', group },
+  ];
+}
+
+/** Arguments for sellerClosingCosts() from normalized values at a given price. */
+export function sellerArgs(v, price) {
+  return {
+    price,
+    sellerBrokerPct: v.sellerBroker, buyerBrokerPct: v.buyerBroker, buyerBrokerPaidBy: v.buyerBrokerBy,
+    concession: v.concessionMode === '$' ? v.concessionAmt : price * (v.concession || 0) / 100,
+    misc: v.misc || 0,
+  };
+}
+
+/** Refinance closing-cost estimate (lender's policy, settlement, recording, lender fees). */
+export function refiCosts(loan, c = CLOSING) {
+  const items = [
+    ['Lender’s title policy (est.)', lendersPolicyEst(loan)],
+    ['Settlement / escrow fee', c.settlementFee], ['Lender CPL', c.lenderCPL], ['Endorsements', c.endorsements],
+    ['Underwriting', c.underwriting], ['Appraisal', c.appraisal], ['Credit report', c.creditReport],
+    ['E-recording', c.eRecording], ['Recording – trust deed', c.recordingTrustDeed], ['Recording fee', c.recordingFee],
+  ];
+  return { items, total: items.reduce((t, [, v]) => t + v, 0) };
+}

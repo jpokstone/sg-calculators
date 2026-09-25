@@ -10,6 +10,7 @@ const priceBase = (v) => v._price || 0;
 export default {
   id: 'monthly-affordability',
   title: 'Monthly Affordability',
+  short: 'Monthly Affordability',
   subtitle: 'Start with the monthly payment you’re comfortable with and see the home price it buys, plus what you’d need at closing.',
   state: { _price: 0, downPct: MARKET.downPct },
   groups: [{ id: 'main' }, { id: 'more', title: 'Assumptions' }, { id: 'costs', title: 'Closing cost details' }],

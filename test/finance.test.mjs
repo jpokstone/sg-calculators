@@ -51,3 +51,23 @@ test('date helpers', () => {
   near(yearFraction(new Date(2026, 6, 2)), 182 / 365, 1e-3);
   assert.equal(daysToMonthEnd(new Date(2026, 9, 25)), 7);
 });
+
+import { apr, buydown, concessionLimit, futureValue, monthsBetween } from '../src/core/finance.js';
+test('APR is above the note rate when fees are financed, equal with no fees', () => {
+  near(apr(300000, 0, 6.5, 30), 6.5, 1e-6);
+  const a = apr(300000, 3000, 6.5, 30);
+  assert.ok(a > 6.55 && a < 6.65, String(a));
+});
+test('buydown schedules', () => {
+  const b = buydown({ loan: 450000, rate: 7.375, term: 30, type: '2-1' });
+  assert.deepEqual(b.phases.map((p) => p.rate), [5.375, 6.375, 7.375]);
+  near(b.cost, 10665.49, 0.1);
+  const p = buydown({ loan: 400000, rate: 7, term: 30, type: 'perm', newRate: 6.75, points: 1 });
+  near(p.cost, 4000); assert.ok(p.breakEvenMonths > 50 && p.breakEvenMonths < 70, String(p.breakEvenMonths));
+});
+test('concession limits and helpers', () => {
+  assert.equal(concessionLimit('conv', 95), 3); assert.equal(concessionLimit('conv', 85), 6); assert.equal(concessionLimit('conv', 70), 9);
+  assert.equal(concessionLimit('fha', 96.5), 6); assert.equal(concessionLimit('va', 100), 4);
+  near(futureValue(100000, 3, 2), 106090, 0.01);
+  assert.equal(monthsBetween('2023-09-25', '2026-09-25'), 36);
+});

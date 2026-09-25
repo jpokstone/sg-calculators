@@ -206,3 +206,56 @@ export function sellerClosingCosts({ price, sellerBrokerPct = MARKET.sellerBroke
   const proratedTax = prorateTax && closingDate ? taxAnnual * yearFraction(closingDate) : 0;
   return { items, costs, proratedTax, total: costs + proratedTax };
 }
+
+/** APR: the rate at which the payment on `loan` repays only (loan − financeCharges). */
+export function apr(loan, financeCharges, rate, years) {
+  if (loan <= 0) return rate;
+  const p = pmt(loan, rate, years);
+  const net = loan - financeCharges;
+  if (net <= 0) return rate;
+  // principalFromPmt falls as the rate rises: find r where it equals `net`.
+  let lo = 0, hi = 50;
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    if (principalFromPmt(p, mid, years) > net) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/** Value after `years` of compound growth at `ratePct` per year. */
+export const futureValue = (value, ratePct, years) => value * Math.pow(1 + ratePct / 100, years);
+
+/** Months of loan payments between two dates (never negative). */
+export function monthsBetween(from, to) {
+  const a = parseDate(from), b = parseDate(to);
+  return Math.max(0, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) - (b.getDate() < a.getDate() ? 1 : 0));
+}
+
+/** Max seller concession (% of price) by program and LTV. Editable in defaults if needed. */
+export function concessionLimit(type, ltv) {
+  if (type === 'fha' || type === 'usda') return 6;
+  if (type === 'va') return 4;
+  if (type === 'cash') return 100;
+  return ltv > 90 ? 3 : ltv > 75 ? 6 : 9;
+}
+
+/**
+ * Temporary or permanent buydown.
+ * type: '1-0' | '2-1' | '3-2-1' | 'perm'. For 'perm', pass newRate.
+ * Returns yearly rate schedule, P&I per phase and the cost (sum of payment differences, or points).
+ */
+export function buydown({ loan, rate, term, type, newRate, points = 0 }) {
+  const base = pmt(loan, rate, term);
+  if (type === 'perm') {
+    const nr = newRate ?? rate;
+    const p = pmt(loan, nr, term);
+    const cost = loan * points / 100;
+    const save = base - p;
+    return { base, phases: [{ label: `Years 1–${term}`, rate: nr, pi: p, save }], cost, breakEvenMonths: save > 0 ? cost / save : Infinity };
+  }
+  const steps = type === '3-2-1' ? [3, 2, 1] : type === '2-1' ? [2, 1] : [1];
+  const phases = steps.map((d, i) => { const r = Math.max(0, rate - d); const p = pmt(loan, r, term); return { label: `Year ${i + 1}`, rate: r, pi: p, save: base - p }; });
+  phases.push({ label: `Years ${steps.length + 1}–${term}`, rate, pi: base, save: 0 });
+  const cost = phases.reduce((t, ph) => t + ph.save * 12, 0);
+  return { base, phases, cost };
+}
