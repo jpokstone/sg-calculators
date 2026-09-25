@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SG Calculators — embed test</title>
+<style>
+  /* Deliberately hostile host-site CSS: none of this should affect the calculator. */
+  * { font-family: "Comic Sans MS", cursive !important; }
+  input, select, button { border: 4px dashed red; border-radius: 20px; background: yellow; font-size: 30px; }
+  h2 { color: lime; font-size: 60px; }
+  div { line-height: 3; }
+  body { margin: 0; background: #fff; }
+  .page { max-width: 1160px; margin: 0 auto; padding: 40px 16px; }
+</style></head>
+<body><div class="page">
+  <p>Host page text (should look hostile). Calculator below should look on-brand.</p>
+  <div data-sg-calc="monthly-affordability" data-brand="GMR Real Estate" data-contact="Greg Riley | (801) 808-7457 | greg@gmr-realestate.com"></div>
+</div>
+<script src="../calculators.js" defer></script>
+</body></html>
